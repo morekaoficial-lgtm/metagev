@@ -74,6 +74,13 @@ export interface MyEvaluationItem {
 
 export interface MyCurrentEvaluation {
   period: { id: string; year: number; month: number; status: string } | null;
+  /** Otros periodos activos con objetivos asignados, pendientes de evaluar. */
+  pendingPeriods: Array<{
+    id: string;
+    year: number;
+    month: number;
+    status: string;
+  }>;
   objectives: Objective[];
   selfEvaluation?: {
     id: string;
@@ -87,7 +94,7 @@ export interface MyCurrentEvaluation {
     potentialMax?: number | null;
     totalPoints?: number | null;
     isFinal: boolean;
-    daysToClose: number;
+    daysToClose: number | null;
   };
 }
 

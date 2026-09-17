@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { ConfigService } from '@nestjs/config';
 import { CloseReason, PeriodStatus, Prisma, SelfEvaluationStatus } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { prorationFactor, round2 } from '../../common/business/calculation';
@@ -7,23 +8,34 @@ import { ReceiptsService } from '../receipts/receipts.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
 /**
- * Auto-cierre diario 00:05 (America/Mexico_City).
- * - Día 7 del mes siguiente al periodo: recordatorio (3 días para cierre).
- * - Día 11: colaboradores activos con evaluación PENDING/IN_PROGRESS → AUTO_CLOSED al 0%,
- *   con recibo generado y vista bloqueada. Los enviados sin validar quedan PENDING en bandeja.
+ * Revisión diaria 00:05 (America/Mexico_City).
+ * EL AUTO-CIERRE ESTÁ DESHABILITADO por defecto (AUTO_CLOSE_ENABLED=false):
+ * los periodos quedan abiertos hasta que RRHH/Dueño los cierre manualmente,
+ * permitiendo evaluar meses anteriores sin límite de días.
+ * Si se habilita con AUTO_CLOSE_ENABLED=true:
+ * - Día 7 del mes siguiente al periodo: recordatorio.
+ * - Día 11: colaboradores activos con evaluación PENDING/IN_PROGRESS → AUTO_CLOSED al 0%.
  */
 @Injectable()
 export class SchedulerService {
   private readonly logger = new Logger(SchedulerService.name);
+  private readonly autoCloseEnabled: boolean;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly receiptsService: ReceiptsService,
     private readonly notificationsService: NotificationsService,
-  ) {}
+    private readonly config: ConfigService,
+  ) {
+    this.autoCloseEnabled =
+      (this.config.get<string>('AUTO_CLOSE_ENABLED') ?? 'false').toLowerCase() === 'true';
+  }
 
   @Cron('5 0 * * *', { timeZone: 'America/Mexico_City' })
   async dailyAutoClose() {
+    if (!this.autoCloseEnabled) {
+      return; // auto-cierre deshabilitado: nada que revisar
+    }
     this.logger.log('Ejecutando revisión diaria de auto-cierre...');
     const periods = await this.prisma.evaluationPeriod.findMany({
       where: { status: { in: [PeriodStatus.ACTIVE, PeriodStatus.CLOSED, PeriodStatus.AUTO_CLOSED] } },

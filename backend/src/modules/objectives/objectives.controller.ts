@@ -22,7 +22,7 @@ import {
 } from './dto/objective.dto';
 
 @Controller('objectives')
-@Roles(Role.RRHH)
+@Roles(Role.RRHH, Role.JEFE, Role.DUENO)
 export class ObjectivesController {
   constructor(private readonly objectivesService: ObjectivesService) {}
 
@@ -30,42 +30,45 @@ export class ObjectivesController {
   list(
     @Query('periodId', ParseUUIDPipe) periodId: string,
     @Query('employeeId', ParseUUIDPipe) employeeId: string,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.objectivesService.list(periodId, employeeId);
+    return this.objectivesService.list(periodId, employeeId, user);
   }
 
   @Get('audit')
   audit(
     @Query('periodId', ParseUUIDPipe) periodId: string,
     @Query('employeeId', ParseUUIDPipe) employeeId: string,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.objectivesService.audit(periodId, employeeId);
+    return this.objectivesService.audit(periodId, employeeId, user);
   }
 
   @Post()
   create(@Body() dto: CreateObjectiveDto, @CurrentUser() user: AuthUser) {
-    return this.objectivesService.create(dto, user.id);
+    return this.objectivesService.create(dto, user);
   }
 
   @Patch(':id')
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateObjectiveDto, @CurrentUser() user: AuthUser) {
-    return this.objectivesService.update(id, dto, user.id);
+    return this.objectivesService.update(id, dto, user);
   }
 
   @Delete(':id')
   remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
-    return this.objectivesService.remove(id, user.id);
+    return this.objectivesService.remove(id, user);
   }
 
   @Post('duplicate-from-last-month')
   duplicate(@Body() dto: DuplicateObjectivesDto, @CurrentUser() user: AuthUser) {
-    return this.objectivesService.duplicateFromLastMonth(dto, user.id);
+    return this.objectivesService.duplicateFromLastMonth(dto, user);
   }
 
   @Post('recalculate')
   recalculate(
     @Body() dto: RecalculateObjectivesDto,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.objectivesService.recalculate(dto.periodId, dto.employeeId);
+    return this.objectivesService.recalculate(dto.periodId, dto.employeeId, user);
   }
 }

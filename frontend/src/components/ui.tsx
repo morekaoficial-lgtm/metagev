@@ -9,8 +9,8 @@ export function PageHeader({ title, children }: { title: string; children?: Reac
   );
 }
 
-export function Card({ children }: { children: ReactNode }) {
-  return <div className="bg-white rounded-lg shadow p-4 md:p-6">{children}</div>;
+export function Card({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={`bg-white rounded-lg shadow p-4 md:p-6 ${className ?? ''}`}>{children}</div>;
 }
 
 export function Button({

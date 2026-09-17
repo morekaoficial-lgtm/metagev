@@ -2,6 +2,8 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from './layouts/AppLayout';
 import { RedirectByRole, RequireAuth, RoleRoute } from './components/guards';
 import { LoginPage } from './pages/LoginPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
 import { AdminCatalogPage } from './pages/admin/AdminCatalogPage';
 import { AdminPeriodsPage } from './pages/admin/AdminPeriodsPage';
@@ -20,6 +22,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route
         path="/"
         element={
@@ -73,7 +77,7 @@ export default function App() {
       <Route
         path="/admin/objetivos"
         element={
-          <RoleRoute roles={['RRHH', 'DUENO']}>
+          <RoleRoute roles={['JEFE', 'RRHH', 'DUENO']}>
             <AppLayout>
               <AdminObjectivesPage />
             </AppLayout>

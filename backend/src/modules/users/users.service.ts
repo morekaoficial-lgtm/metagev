@@ -61,6 +61,30 @@ export class UsersService {
     });
   }
 
+  /** Empleados evaluables visibles para asignación de objetivos según el rol del solicitante. */
+  async assignable(user: { id: string; role: string }) {
+    const where: Prisma.UserWhereInput = {
+      role: { in: EVALUABLE_ROLES },
+      isActive: true,
+    };
+    if (user.role === 'JEFE') where.directBossId = user.id;
+    return this.prisma.user.findMany({
+      where,
+      orderBy: { fullName: 'asc' },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        role: true,
+        directBossId: true,
+        directBoss: { select: { id: true, fullName: true } },
+        isActive: true,
+        profile: { select: { officialPosition: true, branch: { select: { id: true, name: true } } } },
+      },
+    });
+  }
+
   async create(dto: CreateUserDto) {
     const exists = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (exists) throw new BadRequestException('El correo ya está registrado');

@@ -44,6 +44,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
       { to: '/validacion', labelKey: 'menu.validation' },
     );
   }
+  if (role === 'JEFE') {
+    menu.push({ to: '/admin/objetivos', labelKey: 'menu.objectives' });
+  }
 
   const close = () => setOpen(false);
 

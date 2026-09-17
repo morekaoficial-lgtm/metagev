@@ -59,7 +59,7 @@ export function MisObjetivosPage() {
         </Card>
         <Card>
           <div className="text-sm text-gray-500">{t('myObjectives.daysToClose')}</div>
-          <div className="text-2xl font-semibold mt-1">{projected?.daysToClose ?? '—'}</div>
+          <div className="text-2xl font-semibold mt-1">{projected?.daysToClose ?? '∞'}</div>
         </Card>
         <Card>
           <div className="text-sm text-gray-500">{t('common.status')}</div>

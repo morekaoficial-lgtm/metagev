@@ -7,11 +7,27 @@ import { CreateObjectiveDto, DuplicateObjectivesDto, UpdateObjectiveDto } from '
 const MIN_OBJECTIVES = 5;
 const MAX_OBJECTIVES = 30;
 
+type ObjectiveUser = { id: string; role: string };
+
 @Injectable()
 export class ObjectivesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(periodId: string, employeeId: string) {
+  /** Alcance jerárquico: RRHH y Dueño gestionan a cualquiera; el Jefe solo a sus subordinados directos. */
+  private async assertCanManage(user: ObjectiveUser, employeeId: string) {
+    if (user.role === 'RRHH' || user.role === 'DUENO') return;
+    if (user.role === 'JEFE') {
+      const isSubordinate = await this.prisma.user.count({
+        where: { id: employeeId, directBossId: user.id },
+      });
+      if (isSubordinate > 0) return;
+      throw new ForbiddenException('Solo puedes gestionar objetivos de tus subordinados directos');
+    }
+    throw new ForbiddenException('No tienes permiso para gestionar objetivos');
+  }
+
+  async list(periodId: string, employeeId: string, user: ObjectiveUser) {
+    await this.assertCanManage(user, employeeId);
     const objectives = await this.prisma.objective.findMany({
       where: { periodId, employeeId },
       orderBy: { createdAt: 'asc' },
@@ -24,8 +40,10 @@ export class ObjectivesService {
     }));
   }
 
-  async create(dto: CreateObjectiveDto, createdById: string) {
+  async create(dto: CreateObjectiveDto, user: ObjectiveUser) {
     await this.assertEditablePeriod(dto.periodId);
+    await this.assertCanManage(user, dto.employeeId);
+    const createdById = user.id;
     const count = await this.prisma.objective.count({
       where: { periodId: dto.periodId, employeeId: dto.employeeId },
     });
@@ -62,10 +80,12 @@ export class ObjectivesService {
     return this.findById(created.id);
   }
 
-  async update(id: string, dto: UpdateObjectiveDto, changedById: string) {
+  async update(id: string, dto: UpdateObjectiveDto, user: ObjectiveUser) {
     const objective = await this.prisma.objective.findUnique({ where: { id } });
     if (!objective) throw new NotFoundException('Objetivo no encontrado');
     await this.assertEditablePeriod(objective.periodId);
+    await this.assertCanManage(user, objective.employeeId);
+    const changedById = user.id;
 
     await this.prisma.$transaction(async (tx) => {
       const data: Prisma.ObjectiveUpdateInput = {};
@@ -123,10 +143,12 @@ export class ObjectivesService {
     return this.findById(id);
   }
 
-  async remove(id: string, changedById: string) {
+  async remove(id: string, user: ObjectiveUser) {
     const objective = await this.prisma.objective.findUnique({ where: { id } });
     if (!objective) throw new NotFoundException('Objetivo no encontrado');
     await this.assertEditablePeriod(objective.periodId);
+    await this.assertCanManage(user, objective.employeeId);
+    const changedById = user.id;
 
     const count = await this.prisma.objective.count({
       where: { periodId: objective.periodId, employeeId: objective.employeeId },
@@ -150,8 +172,10 @@ export class ObjectivesService {
     return { ok: true };
   }
 
-  async duplicateFromLastMonth(dto: DuplicateObjectivesDto, createdById: string) {
+  async duplicateFromLastMonth(dto: DuplicateObjectivesDto, user: ObjectiveUser) {
     await this.assertEditablePeriod(dto.periodId);
+    await this.assertCanManage(user, dto.employeeId);
+    const createdById = user.id;
     const period = await this.prisma.evaluationPeriod.findUnique({ where: { id: dto.periodId } });
     if (!period) throw new NotFoundException('Periodo no encontrado');
     const prevMonth = period.month === 1 ? 12 : period.month - 1;
@@ -205,10 +229,11 @@ export class ObjectivesService {
       await this.recalculatePoints(tx, dto.periodId, dto.employeeId);
     });
 
-    return this.list(dto.periodId, dto.employeeId);
+    return this.list(dto.periodId, dto.employeeId, user);
   }
 
-  async audit(periodId: string, employeeId: string) {
+  async audit(periodId: string, employeeId: string, user: ObjectiveUser) {
+    await this.assertCanManage(user, employeeId);
     return this.prisma.objectiveAuditLog.findMany({
       where: { objective: { periodId, employeeId } },
       orderBy: { changedAt: 'desc' },
@@ -245,13 +270,14 @@ export class ObjectivesService {
   }
 
   /** Recálculo explícito solicitado desde la UI (botón "Guardar ponderación"). */
-  async recalculate(periodId: string, employeeId: string) {
+  async recalculate(periodId: string, employeeId: string, user: ObjectiveUser) {
     await this.assertEditablePeriod(periodId);
+    await this.assertCanManage(user, employeeId);
     await this.assertEmployee(employeeId);
     await this.prisma.$transaction(async (tx) => {
       await this.recalculatePoints(tx, periodId, employeeId);
     });
-    const objectives = await this.list(periodId, employeeId);
+    const objectives = await this.list(periodId, employeeId, user);
     const total = objectives.reduce((acc, o) => acc + Number(o.points), 0);
     return { count: objectives.length, totalPoints: total, objectives };
   }

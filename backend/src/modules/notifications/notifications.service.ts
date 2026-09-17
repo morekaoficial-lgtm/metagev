@@ -52,6 +52,16 @@ Quedan <strong>${daysLeft} días para el cierre</strong>. Envíala desde la secc
     });
   }
 
+  async sendPasswordReset(to: string, employeeName: string, resetUrl: string) {
+    return this.deliver(to, 'Recuperación de contraseña — MetaGEV', {
+      type: 'PASSWORD_RESET',
+      html: `<p>Hola ${employeeName},</p>
+<p>Recibimos una solicitud para restablecer tu contraseña de <strong>MetaGEV</strong>.</p>
+<p><a href="${resetUrl}">Restablecer contraseña</a></p>
+<p>El enlace expira en <strong>1 hora</strong>. Si no fuiste tú, ignora este correo y tu contraseña seguirá igual.</p>`,
+    });
+  }
+
   private async deliver(
     to: string,
     subject: string,

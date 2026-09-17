@@ -31,8 +31,8 @@ export function AdminObjectivesPage() {
   const [showAudit, setShowAudit] = useState(false);
 
   const { data: employees } = useQuery({
-    queryKey: ['employees'],
-    queryFn: () => api.get<UserRow[]>('/api/users?evaluable=true&active=true'),
+    queryKey: ['assignableEmployees'],
+    queryFn: () => api.get<UserRow[]>('/api/users/assignable'),
   });
   const { data: periods } = useQuery({
     queryKey: ['periods'],

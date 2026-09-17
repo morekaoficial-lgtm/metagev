@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser, AuthUser } from '../../common/decorators/current-user.decorator';
 import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto } from './dto/user.dto';
 
@@ -22,6 +23,17 @@ export class UsersController {
   @Get('bosses')
   bosses() {
     return this.usersService.bosses();
+  }
+
+  /**
+   * Empleados a los que el usuario actual puede asignar objetivos
+   * (selector en la pantalla de Objetivos): RRHH/Dueño ven toda la operación;
+   * el Jefe solo a sus subordinados directos.
+   */
+  @Get('assignable')
+  @Roles(Role.JEFE, Role.RRHH, Role.DUENO)
+  assignable(@CurrentUser() user: AuthUser) {
+    return this.usersService.assignable(user);
   }
 
   @Post()

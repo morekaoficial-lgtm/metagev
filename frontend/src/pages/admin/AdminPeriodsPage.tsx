@@ -103,9 +103,9 @@ export function AdminPeriodsPage() {
                 <td className="py-2 pr-4">{p._count?.selfEvaluations ?? 0}</td>
                 <td className="py-2 pr-4">{p._count?.results ?? 0}</td>
                 <td className="py-2 pr-4 flex gap-2">
-                  {p.status === 'DRAFT' && (
+                  {p.status !== 'ACTIVE' && (
                     <Button onClick={() => activateMutation.mutate(p.id)}>
-                      {t('periods.activate')}
+                      {p.status === 'DRAFT' ? t('periods.activate') : t('periods.reopen')}
                     </Button>
                   )}
                   {p.status === 'ACTIVE' && (

@@ -30,7 +30,17 @@
     "email": "Correo electrónico",
     "password": "Contraseña",
     "submit": "Entrar",
-    "invalid": "Credenciales inválidas"
+    "invalid": "Credenciales inválidas",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "forgotTitle": "Recuperar contraseña",
+    "forgotSubmit": "Enviar enlace",
+    "resetTitle": "Nueva contraseña",
+    "resetSubmit": "Guardar contraseña",
+    "resetTokenMissing": "El enlace no es válido o está incompleto. Solicita uno nuevo.",
+    "newPassword": "Nueva contraseña",
+    "confirmPassword": "Confirmar contraseña",
+    "passwordMismatch": "Las contraseñas no coinciden",
+    "backToLogin": "← Volver a iniciar sesión"
   },
   "roles": {
     "RRHH": "RRHH",
@@ -124,6 +134,7 @@
     "year": "Año",
     "month": "Mes",
     "activate": "Activar",
+    "reopen": "Reabrir",
     "close": "Cerrar",
     "objectivesCount": "Objetivos",
     "evaluationsCount": "Autoevaluaciones",
@@ -218,6 +229,8 @@
     "submitted": "Tu evaluación fue enviada y ya no admite cambios.",
     "blockedClosed": "Este periodo fue cerrado y ya no admite cambios.",
     "noActivePeriod": "No hay un periodo activo para evaluar.",
+    "noObjectivesAssigned": "Aún no tienes objetivos asignados en este periodo. Avísale a tu jefe o a RRHH para que te los asignen.",
+    "pendingPeriodsTitle": "También tienes evaluaciones pendientes de otros periodos:",
     "missingItems": "Debes calificar todos los objetivos antes de enviar.",
     "submittedOk": "Evaluación enviada correctamente."
   },

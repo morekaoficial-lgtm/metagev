@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 
@@ -17,6 +18,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
       }),
       global: true,
     }),
+    NotificationsModule,
   ],
   controllers: [AuthController],
   providers: [

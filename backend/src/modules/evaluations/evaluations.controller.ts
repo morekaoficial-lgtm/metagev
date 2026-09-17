@@ -11,8 +11,11 @@ export class EvaluationsController {
   constructor(private readonly evaluationsService: EvaluationsService) {}
 
   @Get('my-current')
-  myCurrent(@CurrentUser() user: AuthUser) {
-    return this.evaluationsService.myCurrent(user.id);
+  myCurrent(
+    @CurrentUser() user: AuthUser,
+    @Query('periodId') periodId?: string,
+  ) {
+    return this.evaluationsService.myCurrent(user.id, periodId);
   }
 
   @Put('my-current/items/:objectiveId')
@@ -25,8 +28,8 @@ export class EvaluationsController {
   }
 
   @Post('my-current/submit')
-  submit(@CurrentUser() user: AuthUser) {
-    return this.evaluationsService.submit(user.id);
+  submit(@CurrentUser() user: AuthUser, @Body() dto: { periodId: string }) {
+    return this.evaluationsService.submit(user.id, dto.periodId);
   }
 
   /** Histórico anual de cumplimiento (porcentajes y posición en plantilla, sin dinero). */

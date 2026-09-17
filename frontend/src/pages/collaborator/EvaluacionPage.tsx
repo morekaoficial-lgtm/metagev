@@ -8,6 +8,8 @@ import { Badge, Button, Card, PageHeader } from '../../components/ui';
 
 const SCALES: Scale[] = ['EXCELENTE', 'BUENO', 'REGULAR', 'NO_CUMPLIDO'];
 
+const periodLabel = (y: number, m: number) => `${y}-${String(m).padStart(2, '0')}`;
+
 export function EvaluacionPage() {
   const { t } = useI18n();
   const { user } = useAuth();
@@ -15,10 +17,14 @@ export function EvaluacionPage() {
   const queryClient = useQueryClient();
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [periodId, setPeriodId] = useState<string | undefined>(undefined);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['myEvaluation'],
-    queryFn: () => api.get<MyCurrentEvaluation>('/api/evaluations/my-current'),
+    queryKey: ['myEvaluation', periodId],
+    queryFn: () =>
+      api.get<MyCurrentEvaluation>(
+        `/api/evaluations/my-current${periodId ? `?periodId=${periodId}` : ''}`,
+      ),
   });
 
   const saveMutation = useMutation({
@@ -32,7 +38,8 @@ export function EvaluacionPage() {
   });
 
   const submitMutation = useMutation({
-    mutationFn: () => api.post('/api/evaluations/my-current/submit'),
+    mutationFn: () =>
+      api.post('/api/evaluations/my-current/submit', { periodId: data?.period?.id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myEvaluation'] });
       setNotice(t('evaluation.submittedOk'));
@@ -53,7 +60,8 @@ export function EvaluacionPage() {
     );
   }
 
-  const periodLabel = `${data.period.year}-${String(data.period.month).padStart(2, '0')}`;
+  const currentLabel = periodLabel(data.period.year, data.period.month);
+  const pending = data.pendingPeriods ?? [];
   const blocked =
     data.selfEvaluation?.status === 'SUBMITTED' || data.period.status !== 'ACTIVE';
   const itemsByObjective = new Map(
@@ -63,9 +71,44 @@ export function EvaluacionPage() {
 
   return (
     <div>
-      <PageHeader title={`${t('evaluation.title')} — ${periodLabel}`} />
+      <PageHeader title={`${t('evaluation.title')} — ${currentLabel}`} />
 
-      {blocked ? (
+      {pending.length > 0 && (
+        <Card className="mb-4">
+          <p className="text-sm text-gray-600 mb-2">{t('evaluation.pendingPeriodsTitle')}</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setPeriodId(undefined)}
+              className={`px-3 py-1.5 rounded text-sm border ${
+                !periodId || periodId === data.period.id
+                  ? 'bg-gray-900 text-white border-gray-900'
+                  : 'border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              {currentLabel}
+            </button>
+            {pending.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setPeriodId(p.id)}
+                className={`px-3 py-1.5 rounded text-sm border ${
+                  periodId === p.id
+                    ? 'bg-gray-900 text-white border-gray-900'
+                    : 'border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {periodLabel(p.year, p.month)}
+              </button>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {data.objectives.length === 0 ? (
+        <Card>
+          <p className="text-sm text-gray-700">{t('evaluation.noObjectivesAssigned')}</p>
+        </Card>
+      ) : blocked ? (
         <Card>
           <p className="text-sm text-gray-700">
             {data.selfEvaluation?.status === 'SUBMITTED'

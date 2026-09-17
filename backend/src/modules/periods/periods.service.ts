@@ -26,16 +26,15 @@ export class PeriodsService {
     });
   }
 
+  /**
+   * Abre (o reabre) un periodo. Puede haber VARIOS periodos abiertos a la vez:
+   * así un colaborador puede evaluar el mes actual y meses anteriores sin cerrar.
+   */
   async activate(id: string) {
     const period = await this.findOrFail(id);
-    if (period.status !== PeriodStatus.DRAFT) {
-      throw new BadRequestException('Solo se puede activar un periodo en borrador');
+    if (period.status === PeriodStatus.ACTIVE) {
+      throw new BadRequestException('El periodo ya está activo');
     }
-    // Solo puede haber un periodo activo: los activos previos se cierran.
-    await this.prisma.evaluationPeriod.updateMany({
-      where: { status: PeriodStatus.ACTIVE },
-      data: { status: PeriodStatus.CLOSED },
-    });
     return this.prisma.evaluationPeriod.update({
       where: { id },
       data: { status: PeriodStatus.ACTIVE },
