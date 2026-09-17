@@ -18,4 +18,4 @@ RUN npx prisma generate && npm run build
 
 EXPOSE 3000
 
-CMD sh -c "npx prisma db push && node prisma/seed.js && node dist/main.js"
+CMD sh -c "npx prisma db push && (node prisma/seed.js || echo 'seed: omitido (ya aplicado o error no fatal)') && node dist/main.js"
