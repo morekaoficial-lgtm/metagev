@@ -125,10 +125,16 @@ export class UsersService {
     const role = dto.role ?? user.role;
     const evaluable = role === 'COLABORADOR' || role === 'JEFE' || role === 'RRHH';
 
+    if (dto.email && dto.email !== user.email) {
+      const taken = await this.prisma.user.findUnique({ where: { email: dto.email } });
+      if (taken) throw new BadRequestException('El correo ya está registrado en otra cuenta');
+    }
+
     return this.prisma.user.update({
       where: { id },
       data: {
         fullName: dto.fullName,
+        email: dto.email,
         phone: dto.phone,
         role: dto.role,
         directBossId: dto.directBossId,

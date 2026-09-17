@@ -71,6 +71,10 @@ export class UpdateUserDto {
   fullName?: string;
 
   @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
   @IsString()
   @MinLength(6)
   @MaxLength(100)
