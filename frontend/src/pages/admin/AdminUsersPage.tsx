@@ -103,7 +103,7 @@ export function AdminUsersPage() {
       directBossId: form.directBossId || undefined,
       isActive: form.isActive,
     };
-    if (!editingId && form.password) payload.password = form.password;
+    if (form.password) payload.password = form.password;
     if (isEvaluable(form.role)) {
       payload.branchId = form.branchId || undefined;
       payload.officialPosition = form.officialPosition || 'Ayudante General';
@@ -154,15 +154,14 @@ export function AdminUsersPage() {
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
               />
             </Field>
-            {!editingId && (
-              <Field label={t('auth.password')}>
-                <Input
-                  type="password"
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                />
-              </Field>
-            )}
+            <Field label={editingId ? t('users.resetPassword') : t('auth.password')}>
+              <Input
+                type="password"
+                placeholder={editingId ? t('users.resetPasswordHint') : undefined}
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+              />
+            </Field>
             <Field label={t('users.role')}>
               <Select
                 value={form.role}

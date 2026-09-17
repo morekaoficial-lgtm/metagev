@@ -83,6 +83,8 @@
     "title": "Usuarios",
     "add": "Alta de colaborador",
     "edit": "Editar usuario",
+    "resetPassword": "Nueva contraseña",
+    "resetPasswordHint": "Déjalo vacío para no cambiarla",
     "fullName": "Nombre completo",
     "email": "Correo",
     "phone": "Teléfono",

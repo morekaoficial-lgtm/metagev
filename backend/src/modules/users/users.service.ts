@@ -133,6 +133,8 @@ export class UsersService {
         role: dto.role,
         directBossId: dto.directBossId,
         isActive: dto.isActive,
+        // Restablecimiento de contraseña desde RRHH (opcional).
+        ...(dto.password ? { passwordHash: await bcrypt.hash(dto.password, 10) } : {}),
         // El Dueño no recibe gratificación: solo roles evaluables llevan perfil.
         ...(evaluable
           ? {
