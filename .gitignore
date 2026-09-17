@@ -1,0 +1,22 @@
+# Dependencias
+node_modules/
+
+# Builds
+dist/
+build/
+
+# Variables de entorno (NUNCA subir)
+.env
+.env.*
+!.env.example
+
+# Datos locales
+storage/
+backend/storage/
+*.log
+*.local
+
+# SO / editores
+.DS_Store
+.vscode/
+.idea/

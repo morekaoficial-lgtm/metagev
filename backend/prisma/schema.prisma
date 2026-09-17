@@ -1,0 +1,263 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  RRHH
+  JEFE
+  COLABORADOR
+  DUENO
+}
+
+enum PeriodStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  AUTO_CLOSED
+}
+
+enum Scale {
+  EXCELENTE
+  BUENO
+  REGULAR
+  NO_CUMPLIDO
+}
+
+enum SelfEvaluationStatus {
+  PENDING
+  IN_PROGRESS
+  SUBMITTED
+}
+
+enum CloseReason {
+  MANUAL
+  AUTO_CLOSED
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  fullName     String   @map("full_name")
+  email        String   @unique
+  phone        String?
+  passwordHash String   @map("password_hash")
+  role         Role     @default(COLABORADOR)
+  directBossId String?  @map("direct_boss_id") @db.Uuid
+  directBoss   User?    @relation("DirectBoss", fields: [directBossId], references: [id], onDelete: SetNull)
+  subordinates User[]   @relation("DirectBoss")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  profile            EmployeeProfile?
+  objectives         Objective[]        @relation("ObjectiveEmployee")
+  objectivesCreated  Objective[]        @relation("ObjectiveCreator")
+  auditLogs          ObjectiveAuditLog[]
+  selfEvaluations    SelfEvaluation[]
+  validations        Validation[]       @relation("Validator")
+  validatedResults   EvaluationResult[] @relation("ResultValidator")
+  results            EvaluationResult[]
+  importanceLevels   ImportanceLevel[]
+  notificationLogs   NotificationLog[]
+
+  @@map("users")
+}
+
+model Branch {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  profiles EmployeeProfile[]
+
+  @@map("branches")
+}
+
+model EmployeeProfile {
+  userId                 String   @id @map("user_id") @db.Uuid
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  officialPosition       String   @default("Ayudante General") @map("official_position")
+  gratificationMaxMonthly Decimal @map("gratification_max_monthly") @db.Decimal(12, 2)
+  programStartDate       DateTime @map("program_start_date") @db.Date
+  branchId               String?  @map("branch_id") @db.Uuid
+  branch                 Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@map("employee_profiles")
+}
+
+model ImportanceLevel {
+  id            String   @id @default(uuid()) @db.Uuid
+  label         String
+  relativeWeight Decimal @map("relative_weight") @db.Decimal(6, 2)
+  colorHex      String   @map("color_hex")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdById   String?  @map("created_by_id") @db.Uuid
+  createdBy     User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  objectives Objective[]
+
+  @@map("importance_levels")
+}
+
+model EvaluationPeriod {
+  id        String       @id @default(uuid()) @db.Uuid
+  year      Int
+  month     Int
+  status    PeriodStatus @default(DRAFT)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  objectives      Objective[]
+  selfEvaluations SelfEvaluation[]
+  results         EvaluationResult[]
+
+  @@unique([year, month])
+  @@map("evaluation_periods")
+}
+
+model Objective {
+  id                String   @id @default(uuid()) @db.Uuid
+  periodId          String   @map("period_id") @db.Uuid
+  period            EvaluationPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  employeeId        String   @map("employee_id") @db.Uuid
+  employee          User     @relation("ObjectiveEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  description       String
+  metric            String?
+  importanceLevelId String   @map("importance_level_id") @db.Uuid
+  importanceLevel   ImportanceLevel @relation(fields: [importanceLevelId], references: [id])
+  relativeWeight    Decimal  @map("relative_weight") @db.Decimal(6, 2)
+  points            Decimal  @db.Decimal(6, 2)
+  createdById       String?  @map("created_by_id") @db.Uuid
+  createdBy         User?    @relation("ObjectiveCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  auditLogs          ObjectiveAuditLog[]
+  selfEvaluationItems SelfEvaluationItem[]
+  validationItems    ValidationItem[]
+
+  @@index([periodId, employeeId])
+  @@map("objectives")
+}
+
+model ObjectiveAuditLog {
+  id         BigInt   @id @default(autoincrement())
+  objectiveId String  @map("objective_id") @db.Uuid
+  objective  Objective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  changedById String? @map("changed_by_id") @db.Uuid
+  changedBy  User?    @relation(fields: [changedById], references: [id], onDelete: SetNull)
+  field      String
+  oldValue   String?  @map("old_value")
+  newValue   String?  @map("new_value")
+  changedAt  DateTime @default(now()) @map("changed_at")
+
+  @@map("objective_audit_log")
+}
+
+model SelfEvaluation {
+  id          String               @id @default(uuid()) @db.Uuid
+  periodId    String               @map("period_id") @db.Uuid
+  period      EvaluationPeriod     @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  employeeId  String               @map("employee_id") @db.Uuid
+  employee    User                 @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  status      SelfEvaluationStatus @default(PENDING)
+  submittedAt DateTime?            @map("submitted_at")
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+
+  items      SelfEvaluationItem[]
+  validation Validation?
+
+  @@unique([periodId, employeeId])
+  @@map("self_evaluations")
+}
+
+model SelfEvaluationItem {
+  selfEvaluationId String         @map("self_evaluation_id") @db.Uuid
+  selfEvaluation   SelfEvaluation @relation(fields: [selfEvaluationId], references: [id], onDelete: Cascade)
+  objectiveId      String         @map("objective_id") @db.Uuid
+  objective        Objective      @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  scale            Scale
+  percent          Int
+  comment          String?
+
+  @@id([selfEvaluationId, objectiveId])
+  @@map("self_evaluation_items")
+}
+
+model Validation {
+  id               String   @id @default(uuid()) @db.Uuid
+  selfEvaluationId String   @unique @map("self_evaluation_id") @db.Uuid
+  selfEvaluation   SelfEvaluation @relation(fields: [selfEvaluationId], references: [id], onDelete: Cascade)
+  validatorId      String   @map("validator_id") @db.Uuid
+  validator        User     @relation("Validator", fields: [validatorId], references: [id])
+  justification    String
+  decidedAt        DateTime @default(now()) @map("decided_at")
+
+  items ValidationItem[]
+
+  @@map("validations")
+}
+
+model ValidationItem {
+  validationId String     @map("validation_id") @db.Uuid
+  validation   Validation @relation(fields: [validationId], references: [id], onDelete: Cascade)
+  objectiveId  String     @map("objective_id") @db.Uuid
+  objective    Objective  @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  scale        Scale
+  percent      Int
+
+  @@id([validationId, objectiveId])
+  @@map("validation_items")
+}
+
+model EvaluationResult {
+  id                String      @id @default(uuid()) @db.Uuid
+  periodId          String      @map("period_id") @db.Uuid
+  period            EvaluationPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  employeeId        String      @map("employee_id") @db.Uuid
+  employee          User        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeVersion   Json        @map("employee_version")
+  validatorVersion  Json?       @map("validator_version")
+  validatedById     String?     @map("validated_by_id") @db.Uuid
+  validatedBy       User?       @relation("ResultValidator", fields: [validatedById], references: [id], onDelete: SetNull)
+  totalPointsEarned Decimal     @map("total_points_earned") @db.Decimal(8, 2)
+  prorationFactor   Decimal     @default(1) @map("proration_factor") @db.Decimal(6, 4)
+  proratedMax       Decimal     @map("prorated_max") @db.Decimal(12, 2)
+  finalAmount       Decimal     @map("final_amount") @db.Decimal(12, 2)
+  closeReason       CloseReason @map("close_reason")
+  closedAt          DateTime    @default(now()) @map("closed_at")
+
+  receipt Receipt?
+
+  @@unique([periodId, employeeId])
+  @@map("evaluation_results")
+}
+
+model Receipt {
+  id         String   @id @default(uuid()) @db.Uuid
+  resultId   String   @unique @map("result_id") @db.Uuid
+  result     EvaluationResult @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  folio      String   @unique
+  pdfPath    String   @map("pdf_path")
+  emailedAt  DateTime? @map("emailed_at")
+  generatedAt DateTime @default(now()) @map("generated_at")
+
+  @@map("receipts")
+}
+
+model NotificationLog {
+  id        BigInt   @id @default(autoincrement())
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  payload   Json?
+  sentAt    DateTime? @map("sent_at")
+  status    String   @default("PENDING")
+
+  @@map("notification_log")
+}
