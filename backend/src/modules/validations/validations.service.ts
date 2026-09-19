@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { CloseReason, Prisma, Scale, SelfEvaluationStatus } from '@prisma/client';
@@ -20,6 +21,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ValidationsService {
+  private readonly logger = new Logger(ValidationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly receiptsService: ReceiptsService,
@@ -177,7 +180,7 @@ export class ValidationsService {
     // totalPoints es escala 0–100 (porcentaje de cumplimiento) → % del máximo prorrateado.
     const finalAmount = round2((totals / 100) * proratedMax);
 
-    const result = await this.prisma.$transaction(async (tx) => {
+    const { result, replacedStub } = await this.prisma.$transaction(async (tx) => {
       const validation = await tx.validation.create({
         data: {
           selfEvaluationId,
@@ -194,38 +197,70 @@ export class ValidationsService {
         })),
       });
 
-      try {
-        return await tx.evaluationResult.create({
-          data: {
-            periodId: selfEvaluation.periodId,
-            employeeId: selfEvaluation.employeeId,
-            employeeVersion: employeeVersion as unknown as Prisma.InputJsonValue,
-            validatorVersion: validatorVersion as unknown as Prisma.InputJsonValue,
-            validatedById: validator.id,
-            totalPointsEarned: totals,
-            prorationFactor: factor,
-            proratedMax,
-            finalAmount,
-            closeReason: CloseReason.MANUAL,
-          },
-        });
-      } catch (e) {
-        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-          throw new ConflictException('Esta evaluación ya fue validada por otro usuario');
-        }
-        throw e;
+      const key = {
+        periodId: selfEvaluation.periodId,
+        employeeId: selfEvaluation.employeeId,
+      };
+      const existing = await tx.evaluationResult.findUnique({
+        where: { periodId_employeeId: key },
+      });
+
+      // Cerrado manualmente de verdad = doble validación.
+      if (existing?.closeReason === CloseReason.MANUAL) {
+        throw new ConflictException('Esta evaluación ya fue validada por otro usuario');
       }
+
+      const data = {
+        employeeVersion: employeeVersion as unknown as Prisma.InputJsonValue,
+        validatorVersion: validatorVersion as unknown as Prisma.InputJsonValue,
+        validatedById: validator.id,
+        totalPointsEarned: totals,
+        prorationFactor: factor,
+        proratedMax,
+        finalAmount,
+        closeReason: CloseReason.MANUAL,
+        closedAt: new Date(),
+      };
+
+      // Stub AUTO_CLOSED (0%) de una reapertura de periodo: el colaborador sí
+      // evaluó, así que el resultado real sustituye al stub.
+      if (existing) {
+        const updated = await tx.evaluationResult.update({
+          where: { id: existing.id },
+          data,
+        });
+        return { result: updated, replacedStub: true };
+      }
+      const created = await tx.evaluationResult.create({
+        data: { ...key, ...data },
+      });
+      return { result: created, replacedStub: false };
     });
 
     // Fuera de la transacción: generación de recibo y correo.
-    const receipt = await this.receiptsService.generateForResult(result.id);
-    await this.notificationsService.sendReceiptReady(
-      selfEvaluation.employee.email,
-      selfEvaluation.employee.fullName,
-      receipt.folio,
-    );
+    // NUNCA debe fallar la validación por un problema del PDF (Chromium en el
+    // contenedor) o del SMTP: el resultado ya está comprometido. Se reporta el
+    // error y el recibo se regenera después desde el módulo de Recibos.
+    let receipt: { id: string; folio: string } | null = null;
+    let receiptError: string | null = null;
+    try {
+      // Si sustituimos un stub AUTO_CLOSED que ya tenía recibo (al 0%), hay que
+      // re-renderizar el PDF con los montos reales.
+      receipt = await this.receiptsService.generateForResult(result.id, { force: replacedStub });
+      await this.notificationsService.sendReceiptReady(
+        selfEvaluation.employee.email,
+        selfEvaluation.employee.fullName,
+        receipt.folio,
+      );
+    } catch (e) {
+      const msg = (e as Error).message;
+      this.logger.error(
+        `Validación ${selfEvaluationId} registrada, pero falló la generación del recibo del resultado ${result.id}: ${msg}`,
+      );
+      receiptError = msg;
+    }
 
-    return { result, receipt };
+    return { result, receipt, receiptError };
   }
 
   /**

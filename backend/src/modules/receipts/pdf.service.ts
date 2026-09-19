@@ -29,6 +29,15 @@ export interface BatchReceiptItem {
   amount: number;
 }
 
+const PUPPETEER_ARGS = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  // En contenedores Docker /dev/shm es de 64MB por defecto: sin esto Chromium
+  // se mata al renderizar el PDF (oom del renderer).
+  '--disable-dev-shm-usage',
+  '--disable-gpu',
+];
+
 @Injectable()
 export class PdfService {
   private readonly logger = new Logger(PdfService.name);
@@ -42,7 +51,7 @@ export class PdfService {
     const puppeteer = await import('puppeteer');
     const browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: PUPPETEER_ARGS,
     });
     try {
       const page = await browser.newPage();
@@ -75,7 +84,7 @@ export class PdfService {
     const puppeteer = await import('puppeteer');
     const browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: PUPPETEER_ARGS,
     });
     try {
       const periodLabel = `${year}-${String(month).padStart(2, '0')}`;

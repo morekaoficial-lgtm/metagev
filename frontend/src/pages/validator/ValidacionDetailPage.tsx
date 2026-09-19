@@ -25,12 +25,16 @@ export function ValidacionDetailPage() {
 
   const decideMutation = useMutation({
     mutationFn: (payload: { items: { objectiveId: string; scale: Scale }[]; justification?: string }) =>
-      api.post(`/api/validations/${id}/decide`, payload),
-    onSuccess: () => {
+      api.post<{ receiptError?: string | null }>(`/api/validations/${id}/decide`, payload),
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['validationsPending'] });
-      setNotice(t('validation.decided'));
       setError('');
-      setTimeout(() => navigate('/validacion'), 800);
+      setNotice(
+        data?.receiptError
+          ? `${t('validation.decided')} — ${t('validation.receiptPending')}`
+          : t('validation.decided'),
+      );
+      setTimeout(() => navigate('/validacion'), 2500);
     },
     onError: (e) => {
       setNotice('');

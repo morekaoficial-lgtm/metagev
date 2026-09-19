@@ -266,6 +266,7 @@
     "approve": "Aprobar y cerrar",
     "noPending": "No hay evaluaciones pendientes de validación.",
     "decided": "Validación registrada correctamente",
+    "receiptPending": "el recibo no se pudo generar automáticamente; genérelo después desde el módulo de Recibos",
     "modifiedMarker": "Modificada",
     "points": "Puntos",
     "weighted": "Ponderado"
