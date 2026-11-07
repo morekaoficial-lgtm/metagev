@@ -14,6 +14,11 @@ export class ReceiptsService {
    * por periodo. El bloqueo a nivel fila del periodo evita folios duplicados.
    * `force` re-renderiza el PDF aunque ya exista recibo (p. ej. cuando se
    * sustituyó un stub AUTO_CLOSED por el resultado validado real).
+   *
+   * El PDF se genera FUERA de la transacción: la tx interactiva de Prisma
+   * expira a los 5s por defecto y Puppeteer/Chromium tarda varios segundos
+   * en lanzarse en el contenedor; mantener la tx abierta durante el render
+   * provocaba fallos masivos. La tx solo reserva el folio (ms).
    */
   async generateForResult(resultId: string, opts?: { force?: boolean }) {
     const result = await this.prisma.evaluationResult.findUnique({
@@ -28,45 +33,53 @@ export class ReceiptsService {
     if (result.receipt && !opts?.force) return result.receipt;
     if (!result.employee.profile) throw new NotFoundException('Perfil del colaborador no encontrado');
     const profile = result.employee.profile;
+    const periodLabel = `${result.period.year}-${String(result.period.month).padStart(2, '0')}`;
 
-    await this.prisma.$transaction(async (tx) => {
-      // Bloqueo pesimista sobre el periodo para serializar la numeración del folio.
-      await tx.$queryRaw`SELECT id FROM evaluation_periods WHERE id = ${result.periodId}::uuid FOR UPDATE`;
+    const isReRender = !!result.receipt && !!opts?.force;
+    let folio: string;
 
-      if (result.receipt && opts?.force) {
-        // Recibo existente (stub): se conserva el folio y se reescribe el PDF.
-        await this.pdfService.generateReceiptPdf({
-          folio: result.receipt.folio,
-          employeeName: result.employee.fullName,
-          officialPosition: profile.officialPosition,
-          periodLabel: `${result.period.year}-${String(result.period.month).padStart(2, '0')}`,
-          amount: Number(result.finalAmount),
-        });
-        await tx.receipt.update({
-          where: { resultId },
-          data: { generatedAt: new Date() },
-        });
-        return;
-      }
+    if (isReRender) {
+      // Recibo existente (stub): se conserva el folio y se reescribe el PDF.
+      folio = result.receipt!.folio;
+    } else {
+      // Reservar folio en una tx corta (solo el conteo + INSERT; sin PDF).
+      const created = await this.prisma.$transaction(
+        async (tx) => {
+          // Bloqueo pesimista sobre el periodo para serializar la numeración.
+          await tx.$queryRaw`SELECT id FROM evaluation_periods WHERE id = ${result.periodId}::uuid FOR UPDATE`;
+          const count = await tx.receipt.count({
+            where: { result: { periodId: result.periodId } },
+          });
+          const seq = String(count + 1).padStart(4, '0');
+          const f = `GEV-${result.period.year}-${String(result.period.month).padStart(2, '0')}-${seq}`;
+          return tx.receipt.create({
+            data: { resultId, folio: f, pdfPath: '' },
+          });
+        },
+        { timeout: 15_000 },
+      );
+      folio = created.folio;
+    }
 
-      const count = await tx.receipt.count({
-        where: { result: { periodId: result.periodId } },
-      });
-      const seq = String(count + 1).padStart(4, '0');
-      const folio = `GEV-${result.period.year}-${String(result.period.month).padStart(2, '0')}-${seq}`;
-
+    try {
       const filePath = await this.pdfService.generateReceiptPdf({
         folio,
         employeeName: result.employee.fullName,
         officialPosition: profile.officialPosition,
-        periodLabel: `${result.period.year}-${String(result.period.month).padStart(2, '0')}`,
+        periodLabel,
         amount: Number(result.finalAmount),
       });
-
-      await tx.receipt.create({
-        data: { resultId, folio, pdfPath: filePath },
+      await this.prisma.receipt.update({
+        where: { resultId },
+        data: { pdfPath: filePath, generatedAt: new Date() },
       });
-    });
+    } catch (e) {
+      // No dejar un recibo huérfano sin PDF: si era nuevo, se revierte la reserva.
+      if (!isReRender) {
+        await this.prisma.receipt.delete({ where: { resultId } }).catch(() => undefined);
+      }
+      throw e;
+    }
 
     return this.prisma.receipt.findUniqueOrThrow({ where: { resultId } });
   }

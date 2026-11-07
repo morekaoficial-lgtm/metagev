@@ -15,6 +15,7 @@ export function AdminReceiptsPage() {
   const [periodId, setPeriodId] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [genErrors, setGenErrors] = useState<string[]>([]);
 
   const { data: periods } = useQuery({
     queryKey: ['periods'],
@@ -47,13 +48,21 @@ export function AdminReceiptsPage() {
 
   const generateAll = useMutation({
     mutationFn: () =>
-      api.post<{ generated: number; batch: string | null }>(
+      api.post<{ generated: number; batch: string | null; errors: string[] }>(
         `/api/receipts/period/${periodId}/generate-all`,
       ),
     onSuccess: (data) => {
       setError('');
       setBatchFile(data.batch);
-      setNotice(t('receipts.generatedAll', { count: data.generated }));
+      setGenErrors(data.errors);
+      setNotice(
+        data.errors.length
+          ? t('receipts.generatedAllWithErrors', {
+              count: data.generated,
+              errors: data.errors.length,
+            })
+          : t('receipts.generatedAll', { count: data.generated }),
+      );
       invalidate();
     },
     onError: (e) => setError((e as unknown as ApiError).message),
@@ -73,6 +82,7 @@ export function AdminReceiptsPage() {
                 setPeriodId(e.target.value);
                 setError('');
                 setNotice('');
+                setGenErrors([]);
                 setBatchFile(null);
               }}
             >
@@ -107,6 +117,18 @@ export function AdminReceiptsPage() {
         </div>
         {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
         {notice && <p className="text-sm text-green-700 mb-4">{notice}</p>}
+        {genErrors.length > 0 && (
+          <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3">
+            <p className="text-sm font-semibold text-red-700 mb-1">
+              {t('receipts.errorsTitle')}
+            </p>
+            <ul className="text-xs text-red-600 list-disc pl-5 space-y-0.5">
+              {genErrors.map((err) => (
+                <li key={err}>{err}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {!periodId ? (
           <p className="text-sm text-gray-500">{t('receipts.selectPeriodFirst')}</p>

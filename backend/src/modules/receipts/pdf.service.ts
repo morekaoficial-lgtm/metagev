@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { existsSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
-import { join } from 'path';
+import { dirname, join } from 'path';
 
 const LEGAL_CLAUSE =
   'Por medio del presente documento, reconozco haber recibido la cantidad señalada por concepto de Gratificación Extraordinaria Variable correspondiente a la evaluación de métricas del periodo. Ambas partes reconocen expresamente que este importe es de carácter extraordinario, variable y está estrictamente condicionado a los resultados del sistema de evaluación. Por su naturaleza condicional, este pago no constituye una prestación fija, permanente, ni un derecho adquirido.';
@@ -47,6 +47,11 @@ export class PdfService {
     this.storageDir = config.get<string>('STORAGE_DIR') ?? join(process.cwd(), 'storage');
   }
 
+  /** Ruta del archivo PDF de un recibo (el directorio se crea al escribir). */
+  receiptPath(folio: string): string {
+    return join(this.storageDir, 'receipts', `${folio}.pdf`);
+  }
+
   async generateReceiptPdf(data: ReceiptData): Promise<string> {
     const puppeteer = await import('puppeteer');
     const browser = await puppeteer.launch({
@@ -59,10 +64,8 @@ export class PdfService {
         waitUntil: 'networkidle0',
       });
       const pdf = await page.pdf({ format: 'Letter', printBackground: true });
-      const dir = join(this.storageDir, 'receipts');
-      await mkdir(dir, { recursive: true });
-      const fileName = `${data.folio}.pdf`;
-      const filePath = join(dir, fileName);
+      const filePath = this.receiptPath(data.folio);
+      await mkdir(dirname(filePath), { recursive: true });
       await writeFile(filePath, pdf);
       return filePath;
     } finally {

@@ -116,6 +116,8 @@
     "generate": "Generar recibo",
     "generateAll": "Generar todos",
     "generatedAll": "{{count}} recibo(s) generado(s) correctamente.",
+    "generatedAllWithErrors": "{{count}} recibo(s) generado(s); {{errors}} recibo(s) fallaron (ver detalle abajo).",
+    "errorsTitle": "Errores de generación",
     "batchDownload": "Descargar lote (recibos + concentrado)",
     "download": "Descargar",
     "print": "Imprimir",
